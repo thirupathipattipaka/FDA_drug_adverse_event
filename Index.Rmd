@@ -54,4 +54,50 @@ for (i in 1:87) {
   }
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+dir()
+```
+```{r}
+filenames <- list.files(pattern="*.json", full.names=TRUE)
+filenames
+```
+
+```{r}
+drug1 = fromJSON(filenames[1])
+```
+
+```{r}
+names(drug1)
+```
+
+```{r}
+drug1$meta
+```
+```{r}
+results=drug1$results
+class(results)
+```
+
+```{r}
+glimpse(results)
+```
+
+```{r}
+glimpse(results$patient)
+```
+
+```{r}
+glimpse(results$sender)
+```
+
+```{r}
+glimpse(results$primarysource)
+```
+
+```{r}
+glimpse(results$receiver)
+```
+```{r}
+glimpse(results$patient$reaction)
+```
+
