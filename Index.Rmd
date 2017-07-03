@@ -42,16 +42,16 @@ library(lubridate)
 Downloading the data
 
 ```{r}
-for (i in 1:87) { 
-  if (i<10){
-    url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-000",i,"-of-0087.json.zip")
-  }
-  else{
-    url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-00",i,"-of-0087.json.zip")
-  }
-  download(url,dest="json.zip")
-  unzip ("json.zip")
-  }
+# for (i in 1:87) { 
+#   if (i<10){
+#     url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-000",i,"-of-0087.json.zip")
+#   }
+#   else{
+#     url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-00",i,"-of-0087.json.zip")
+#   }
+#   download(url,dest="json.zip")
+#   unzip ("json.zip")
+#   }
 ```
 
 ```{r}
@@ -83,21 +83,59 @@ glimpse(results)
 ```
 
 ```{r}
-glimpse(results$patient)
+patient <- results$patient
+glimpse(patient)
 ```
 
 ```{r}
-glimpse(results$sender)
+patient$reaction_d <- as.data.frame(as.matrix(patient$reaction))
 ```
 
 ```{r}
 glimpse(results$primarysource)
 ```
 
+
+## Merging the data
+
 ```{r}
-glimpse(results$receiver)
-```
-```{r}
-glimpse(results$patient$reaction)
+#drugname
+drugname <-  NULL
+
+for (i in 1:15000) { 
+  drugname <- rbind(drugname, results$patient$drug[[i]][["medicinalproduct"]] %>% paste( collapse=","))
+}
+
+
+#drugindication
+drugindication <- NULL
+
+for (i in 1:15000) { 
+  drugindication <- rbind(drugindication, results$patient$drug[[i]][["drugindication"]] %>% paste( collapse=","))
+}
+df <-  cbind(results,results$patient,results$primarysource,results$primarysource,drugname = drugname,drugindication= drugindication)
+
+
+for(j in 2:3){                      # read all the rest
+      
+      tmp =fromJSON(filenames[j])$results
+      #drugname
+      drugname <-  NULL
+
+      for (i in 1:nrow(tmp)) { 
+          drugname <- rbind(drugname, tmp$patient$drug[[i]][["medicinalproduct"]] %>% paste( collapse=","))
+      }
+
+
+      #drugindication
+      drugindication <- NULL
+
+      for (i in 1:nrow(tmp)) { 
+          drugindication <- rbind(drugindication, tmp$patient$drug[[i]][["drugindication"]] %>% paste( collapse=","))
+      }
+      df.new <-  cbind(tmp,tmp$patient,tmp$primarysource,tmp$primarysource,drugname = drugname,drugindication= drugindication)
+
+   df=rbind(df, df.new)  # concatenate all
+}
 ```
 
