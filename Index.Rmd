@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/thirupathipattipaka/OtherProjects/FDA_drug_adverse_event")
 ```
 
 ## Introduction
@@ -63,7 +64,7 @@ filenames
 ```
 
 ```{r}
-drug1 = fromJSON(filenames[1])
+drug1 = fromJSON(filenames[75])
 ```
 
 ```{r}
@@ -113,10 +114,24 @@ drugindication <- NULL
 for (i in 1:15000) { 
   drugindication <- rbind(drugindication, results$patient$drug[[i]][["drugindication"]] %>% paste( collapse=","))
 }
-df <-  cbind(results,results$patient,results$primarysource,results$primarysource,drugname = drugname,drugindication= drugindication)
 
+AE <- NULL
+for (i in 1:15000) { 
+  AE <- rbind (AE, results$patient$reaction[[i]][["reactionmeddrapt"]] %>%  unlist() %>% paste(collapse=","))
+  }
 
-for(j in 2:3){                      # read all the rest
+df <-  cbind(results[,!(names(results) %in% c("patient","sender","receiver","primarysource","reportduplicate"))],
+             results$patient[,!(names(results$patient) %in% c("reaction","drug","patientdeath","summary"))],
+             results$primarysource,
+             drugname = drugname,
+             drugindication= drugindication,
+             AE = AE)
+
+```
+
+```{r,warnings=FALSE}
+library(gtools)
+for(j in 76:87){                      # read all the rest
       
       tmp =fromJSON(filenames[j])$results
       #drugname
@@ -133,9 +148,60 @@ for(j in 2:3){                      # read all the rest
       for (i in 1:nrow(tmp)) { 
           drugindication <- rbind(drugindication, tmp$patient$drug[[i]][["drugindication"]] %>% paste( collapse=","))
       }
-      df.new <-  cbind(tmp,tmp$patient,tmp$primarysource,tmp$primarysource,drugname = drugname,drugindication= drugindication)
+      
+      AE <- NULL
+      for (i in 1:nrow(tmp)) { 
+          AE <- rbind (AE, tmp$patient$reaction[[i]][["reactionmeddrapt"]] %>%  unlist() %>% paste(collapse=","))
+       }
+      #df.new <-  cbind(tmp,tmp$patient,tmp$primarysource,drugname = drugname,drugindication= drugindication)
+      df_new <-  cbind(tmp[,!(names(tmp) %in% c("patient","sender","receiver","primarysource","reportduplicate"))],
+                       tmp$patient[,!(names(tmp$patient) %in% c("reaction","drug","patientdeath","summary"))],
+                       tmp$primarysource,
+                       drugname = drugname,
+                       drugindication= drugindication,
+                       AE = AE)
 
-   df=rbind(df, df.new)  # concatenate all
+   df=smartbind(df, df_new)  # concatenate all
 }
+```
+
+```{r}
+glimpse(df)
+```
+
+## Top 100 Adverse drug reactions
+```{r}
+library(knitr)
+df %>% select(AE) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+```
+
+## Adverse events by country
+```{r}
+df %>% select(occurcountry) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable(caption="Adverse events in different countries")
+```
+
+## Top drugs
+```{r}
+df %>% select(drugname) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+```
+
+# Top diseases
+```{r}
+df %>% select(drugindication) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+```
+
+
+```{r}
+#categorization of source country
+df <- df %>% mutate(occurcountry_g = case_when(.$occurcountry=='US'~"United states",
+                                                .$occurcountry=='JP'~"Japan",
+                                                .$occurcountry=='GB'~"Great Britain",
+                                                .$occurcountry=='FR'~"France"
+                                                ))
+df$occurcountry_g <- ifelse(is.na(df$occurcountry_g),"Other",df$occurcountry_g)
+#table(df$AE,df$occurcountry_g)
+#top AEs in US
+df %>% filter(occurcountry=='US') %>% select(AE) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable(caption="US)
+
 ```
 
