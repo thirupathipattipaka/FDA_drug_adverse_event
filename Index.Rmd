@@ -1,13 +1,13 @@
 ---
 title: "AdverseDrugReactions"
 author: "Thirupathi Pattipaka"
-date: "7/2/2017"
+date: "7/5/2017"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("/Users/thirupathipattipaka/OtherProjects/FDA_drug_adverse_event")
+#setwd("/Users/thirupathipattipaka/OtherProjects/FDA_drug_adverse_event")
 ```
 
 ## Introduction
@@ -22,14 +22,11 @@ An adverse event is submitted to the FDA to report any undesirable experience as
 
 The FDA's database of adverse event reports is made available through a web API at https://open.fda.gov/drug/event/. Each report contains general information about the report, patient information, a list of the drugs that the patient is taking, and a list of the patient reactions. It is possible to use these data in many ways: your brief is to explore these data and to see what might be learned from them.
 
-The analysis is aimed to:
+The analysis is aimed to understand whether different adverse events reported in different countries?
 
-* Are different adverse events reported in different countries?
-* What are the different adverse events associated with different disease areas?
-* What drugs tend to be taken together?
+## Loading list of libraries
 
-# Loading list of libraries
-```{r}
+```{r,echo=FALSE}
 library(jsonlite)
 library(dplyr)
 library(stringi)
@@ -38,66 +35,109 @@ library(downloader)
 library(lubridate)
 ```
 
-## Downloading data from openfda (JSON files)
+## Downloading data from openfda website(JSON files)
 
-Downloading the data
+I am downloading drug adverse event data <https://open.fda.gov/drug/event/reference/>. The openFDA drug adverse event API returns data from the FDA Adverse Event Reporting System (FAERS), a database that contains information on adverse event and medication error reports submitted to FDA.
 
-```{r}
-# for (i in 1:87) { 
-#   if (i<10){
-#     url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-000",i,"-of-0087.json.zip")
-#   }
-#   else{
-#     url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-00",i,"-of-0087.json.zip")
-#   }
-#   download(url,dest="json.zip")
-#   unzip ("json.zip")
-#   }
+
+There are 87 data files and we will use a for loop to download all of them. Then, we will concatenate them.
+
+```{r,echo=FALSE}
+for (i in 85:87) {
+  if (i<10){
+    url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-000",i,"-of-0087.json.zip")
+  }
+  else{
+    url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-00",i,"-of-0087.json.zip")
+  }
+  download(url,dest="json.zip")
+  unzip ("json.zip")
+  }
 ```
 
+To check whether all files are downloaded
 ```{r}
 dir()
 ```
+
+To create a character vector of the all json files
 ```{r}
 filenames <- list.files(pattern="*.json", full.names=TRUE)
 filenames
 ```
 
+## Understanding the data
+To read JSON data, I am using the fromJSON function from the jsonlite package.
+Let's read in one of the data files and print the content.
 ```{r}
-drug1 = fromJSON(filenames[75])
+drug1 = fromJSON(filenames[1])
 ```
 
 ```{r}
 names(drug1)
 ```
 
+what meta contains
 ```{r}
 drug1$meta
 ```
+
+what results contains
 ```{r}
 results=drug1$results
 class(results)
 ```
 
+
 ```{r}
 glimpse(results)
 ```
 
-```{r}
-patient <- results$patient
-glimpse(patient)
-```
+As we can above, results contains 27 variables, out of those patients, sender,primarysource,reportduplicate and receiver are dataframes and others are character variables
 
 ```{r}
-patient$reaction_d <- as.data.frame(as.matrix(patient$reaction))
+glimpse(results$patient)
 ```
+The patient dataframe contains eight variables including with dataframe called summary and other variables are lists
+
+To explore further about reaction list
+```{r,echo=FALSE}
+glimpse(results$patient$reaction[1])
+```
+
+The reaction contains 15000 lists, each patient with one list. Each list contains reactionmeddrapt variable which is included with the list of adverse reactions
+
+Understand drug list in patient
+
+```{r}
+glimpse(results$patient$drug[1])
+```
+The list drug contains variables like medicinalproduct, drugindication and other dataframe openfda which contains variables like manufacturer_name,generic_name,brand_name etc.,
+
+<br>
+To understand primary source
 
 ```{r}
 glimpse(results$primarysource)
 ```
+<br>
+All three variables in the primary source are character variables
 
+```{r}
+glimpse(results$reportduplicate)
+```
+<br>
+All two columns in the reportduplicate are character variables
+
+```{r}
+glimpse(results$receiver)
+```
+All two columns in the receiver are also character variables
 
 ## Merging the data
+
+Now, let's select certain variables from each data file and merge them and see adverse events reported in different countries
+As a starting point, I will select drugname, drugindication, occurcountry, Adverse event, reportercountry, primarysourcecountry, etc., 
 
 ```{r}
 #drugname
@@ -128,6 +168,8 @@ df <-  cbind(results[,!(names(results) %in% c("patient","sender","receiver","pri
              AE = AE)
 
 ```
+<br>
+Merging all files
 
 ```{r,warnings=FALSE}
 library(gtools)
@@ -165,43 +207,77 @@ for(j in 76:87){                      # read all the rest
 }
 ```
 
+Final dataset for further processing
+
 ```{r}
 glimpse(df)
 ```
 
-## Top 100 Adverse drug reactions
 ```{r}
-library(knitr)
-df %>% select(AE) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+df = mutate(df,receive_date =ymd(receivedate))
+df%>% group_by(receive_date) %>% summarize(Total=n()) %>% ggplot(aes(x=receive_date,y=Total)) + geom_line()
+```
+```{r}
+#categorization of source country
+df_ <- df %>%  select(safetyreportid, occurcountry,reportercountry, AE,drugname,patientonsetage,serious,primarysourcecountry,drugindication)
+df_$occurcountry <- ifelse(is.na(df_$occurcountry),df_$primarysourcecountry,df_$occurcountry)
+df_ <- df_ %>% mutate(occurcountry_g = case_when(.$occurcountry=='US'~"United states",
+                                               .$occurcountry=='JP'~"Japan",
+                                               .$occurcountry=='GB'~"Great Britain",
+                                               .$occurcountry=='FR'~"France",
+                                               .$occurcountry =='CA'~"Canada",
+                                               .$occurcountry =='DE'~"Germany"
+                                                ))
+df_$occurcountry_g <- ifelse(is.na(df_$occurcountry_g),"Other",df_$occurcountry_g)
+
+df2 <- df_ %>%
+       mutate(AE2 = strsplit(as.character(AE), ",")) %>%
+       unnest(AE2)
 ```
 
 ## Adverse events by country
-```{r}
-df %>% select(occurcountry) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable(caption="Adverse events in different countries")
+```{r,fig.width=15}
+df2%>% group_by(occurcountry) %>%summarize(Total=n()) %>% filter(Total >10) %>% ggplot(aes(x=occurcountry,y=Total))+ geom_bar(stat="identity")
+df2%>% group_by(occurcountry) %>%summarize(Total=n()) %>% filter(Total >10) %>%  ungroup() %>%
+    arrange(desc(Total)) %>% kable()
 ```
+
+
+Countries with more than two adverse events reported in each report
+
+```{r,fig.width=15}
+df2%>% group_by(occurcountry) %>% summarize(Total=n()/n_distinct(safetyreportid)) %>% filter(Total >2) %>% ggplot(aes(x=occurcountry,y=Total))+ geom_bar(stat="identity")
+```
+
+
+## Top 100 Adverse drug reactions
+```{r}
+library(knitr)
+df2 %>% select(AE2) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+```
+
+Adverse events by country
+```{r}
+df2 %>% 
+  group_by(AE2,occurcountry_g) %>%
+  summarise(Total = n()) %>% 
+  mutate(Total_events= sum(Total)) %>% spread(occurcountry_g, Total) %>% arrange(-Total_events) %>% head(100) %>%  
+  kable(col.names=c("Adverse event","Total number of events","Canada","France","Germany","Great Britain","Japan","Other","USA"))
+```
+
 
 ## Top drugs
 ```{r}
-df %>% select(drugname) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+df %>% select(drugname) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  
+  kable(col.names=c("Drug name","Number of safety records"))
 ```
 
 # Top diseases
 ```{r}
-df %>% select(drugindication) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+df %>% select(drugindication) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  
+  kable(col.names=c("Drug indication","Number of safety reports"))
 ```
 
 
-```{r}
-#categorization of source country
-df <- df %>% mutate(occurcountry_g = case_when(.$occurcountry=='US'~"United states",
-                                                .$occurcountry=='JP'~"Japan",
-                                                .$occurcountry=='GB'~"Great Britain",
-                                                .$occurcountry=='FR'~"France"
-                                                ))
-df$occurcountry_g <- ifelse(is.na(df$occurcountry_g),"Other",df$occurcountry_g)
-#table(df$AE,df$occurcountry_g)
-#top AEs in US
-df %>% filter(occurcountry=='US') %>% select(AE) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable(caption="US)
 
-```
 
