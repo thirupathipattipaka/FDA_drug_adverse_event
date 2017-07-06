@@ -33,6 +33,9 @@ library(stringi)
 library(ggplot2)
 library(downloader)
 library(lubridate)
+library(tidyr)
+library(gtools)
+library(knitr)
 ```
 
 ## Downloading data from openfda website(JSON files)
@@ -43,7 +46,7 @@ I am downloading drug adverse event data <https://open.fda.gov/drug/event/refere
 There are 87 data files and we will use a for loop to download all of them. Then, we will concatenate them.
 
 ```{r,echo=FALSE}
-for (i in 85:87) {
+for (i in 80:87) {
   if (i<10){
     url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-000",i,"-of-0087.json.zip")
   }
@@ -172,8 +175,8 @@ df <-  cbind(results[,!(names(results) %in% c("patient","sender","receiver","pri
 Merging all files
 
 ```{r,warnings=FALSE}
-library(gtools)
-for(j in 76:87){                      # read all the rest
+
+for(j in 2:8){                      # read all the rest
       
       tmp =fromJSON(filenames[j])$results
       #drugname
@@ -252,7 +255,7 @@ df2%>% group_by(occurcountry) %>% summarize(Total=n()/n_distinct(safetyreportid)
 
 ## Top 100 Adverse drug reactions
 ```{r}
-library(knitr)
+
 df2 %>% select(AE2) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
 ```
 
@@ -263,6 +266,22 @@ df2 %>%
   summarise(Total = n()) %>% 
   mutate(Total_events= sum(Total)) %>% spread(occurcountry_g, Total) %>% arrange(-Total_events) %>% head(100) %>%  
   kable(col.names=c("Adverse event","Total number of events","Canada","France","Germany","Great Britain","Japan","Other","USA"))
+```
+<br>
+
+BY occur country groups
+```{r}
+df2%>% group_by(occurcountry_g) %>%summarize(Total=n()) %>%  mutate(Percentage=100*Total/sum(Total)) %>% kable(col.names=c("Country name","Total number of safety reports","Percentage"),digits=1)
+```
+
+<br>
+Percentage of events in each country
+```{r}
+df2 %>% 
+  group_by(AE2,occurcountry_g) %>%
+  summarise(Total = n()) %>% mutate(freq=100*Total/sum(Total)) %>% 
+  mutate(Total_events= sum(Total)) %>% select(AE2,occurcountry_g,Total_events,freq) %>% spread(occurcountry_g, freq) %>% arrange(-Total_events) %>% head(100) %>% 
+  kable(col.names=c("Adverse event","Total number of events","Canada","France","Germany","Great Britain","Japan","Other","USA"),digits=1)
 ```
 
 
