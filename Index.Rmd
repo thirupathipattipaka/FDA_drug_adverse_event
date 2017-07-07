@@ -45,7 +45,7 @@ I am downloading drug adverse event data <https://open.fda.gov/drug/event/refere
 
 There are 87 data files and we will use a for loop to download all of them. Then, we will concatenate them.
 
-```{r,echo=FALSE}
+```{r,eval=FALSE}
 for (i in 80:87) {
   if (i<10){
     url = paste0("https://download.open.fda.gov/drug/event/all_other/drug-event-000",i,"-of-0087.json.zip")
@@ -241,8 +241,8 @@ df2 <- df_ %>%
 ## Adverse events by country
 ```{r,fig.width=15}
 df2%>% group_by(occurcountry) %>%summarize(Total=n()) %>% filter(Total >10) %>% ggplot(aes(x=occurcountry,y=Total))+ geom_bar(stat="identity")
-df2%>% group_by(occurcountry) %>%summarize(Total=n()) %>% filter(Total >10) %>%  ungroup() %>%
-    arrange(desc(Total)) %>% kable()
+df2%>% group_by(occurcountry) %>% summarize(Total=n()) %>% mutate(Proportion = 100*Total / sum(Total)) %>% filter(Total >10) %>%  ungroup() %>%
+    arrange(desc(Total)) %>% kable(digits=2)
 ```
 
 
@@ -255,8 +255,8 @@ df2%>% group_by(occurcountry) %>% summarize(Total=n()/n_distinct(safetyreportid)
 
 ## Top 100 Adverse drug reactions
 ```{r}
-
-df2 %>% select(AE2) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  kable()
+df2 %>% group_by(AE2) %>% summarize(Total=n()) %>% mutate(Proportion = 100*Total / sum(Total))  %>%  ungroup() %>%
+    arrange(desc(Total)) %>% head(100) %>% kable(digits=2)
 ```
 
 Adverse events by country
@@ -287,14 +287,14 @@ df2 %>%
 
 ## Top drugs
 ```{r}
-df %>% select(drugname) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  
-  kable(col.names=c("Drug name","Number of safety records"))
+df %>% group_by(drugname) %>% summarize(Total=n()) %>% mutate(Proportion = 100*Total / sum(Total))  %>%  ungroup() %>%
+    arrange(desc(Total)) %>% head(100) %>% kable(digits=2,col.names=c("Drug name","Number of safety records","Proportion"))
 ```
 
 # Top diseases
 ```{r}
-df %>% select(drugindication) %>% table() %>% sort(... = 2,decreasing = TRUE) %>% as.data.frame() %>% head(100) %>%  
-  kable(col.names=c("Drug indication","Number of safety reports"))
+df %>% group_by(drugindication) %>% summarize(Total=n()) %>% mutate(Proportion = 100*Total / sum(Total))  %>%  ungroup() %>%
+    arrange(desc(Total)) %>% head(100) %>% kable(digits=2,col.names=c("Drug name","Number of safety records","Proportion"))
 ```
 
 
